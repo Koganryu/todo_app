@@ -1,9 +1,9 @@
 /// <reference types="vitest" />
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
-export default defineConfig({
+const config: any = {
   base: process.env.VITE_BASE || '/',
   plugins: [react()],
   test: {
@@ -11,4 +11,6 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts'
   }
-})
+}
+
+export default defineConfig(config)
