@@ -358,8 +358,9 @@ jobs:
 ```
 
 （任意）GitHub Pages でのCDイメージ：
-- `npm i -D gh-pages`、`package.json`に`"predeploy":"npm run build","deploy":"gh-pages -d dist"`を追加。
-- リポ設定→Pagesで`gh-pages`ブランチを公開に設定。
+- 本コースではGitHub Actionsで自動デプロイ（`/.github/workflows/deploy.yml`）を使用。
+- リポ設定 → Pages → Source: GitHub Actions を選択。
+- mainへpushすると、`web/dist`をPagesに配信。URLはActionsの`Deploy to GitHub Pages`出力に表示。
 
 ## 参考資料
 - React公式ドキュメント: https://react.dev/
