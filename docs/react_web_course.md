@@ -25,7 +25,7 @@
 2. `.dockerignore`を用意（`node_modules`/`dist`/`*.log`等を除外）。
 3. `docker-compose.yml`を新規作成（`app`サービスで`5173:5173`、ボリュームでソースをマウント、`node_modules`は名前付きボリューム）。
 4. 初回ビルド: `docker compose build`を実行（キャッシュやネットワークエラー時の対処共有）。
-5. コンテナ起動: `docker compose up -d` → `docker compose exec web sh`でシェルに入る。
+5. コンテナ起動: `docker compose up -d` → `docker compose exec app sh`でシェルに入る。
 6. プロジェクト初期化（コンテナ内）: `npm create vite@latest . -- --template react-ts`（カレント直下に生成）。
 7. 依存関係導入: `npm install` / `npm ci`、`npm run dev -- --host 0.0.0.0`で起動確認（デフォルト5173）。
 8. `package.json`/`tsconfig.json`/`vite.config.ts`の役割と編集ポイントを解説。
@@ -409,18 +409,20 @@ module.exports = {
 
 テスト（Vitest + RTL）
 ```powershell
-docker compose exec web sh -lc "npm i -D vitest @testing-library/react @testing-library/user-event @testing-library/jest-dom jsdom"
+docker compose exec -w /workspace/web app sh -lc "npm i -D vitest @testing-library/react @testing-library/user-event @testing-library/jest-dom jsdom"
 ```
 
-`vite.config.ts`に`test`設定を追加
+`vite.config.ts`に`test`設定を追加（型エラー回避のため`vitest/config`からimport）
 ```ts
 /// <reference types="vitest" />
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+	base: process.env.VITE_BASE || '/',
 	plugins: [react()],
 	test: {
+		globals: true,
 		environment: 'jsdom',
 		setupFiles: './src/test/setup.ts'
 	}
@@ -462,9 +464,40 @@ test('toggle and delete buttons work', async () => {
 - CI: PRでActionsが自動実行し、lint/test/buildが緑。
 
 よくある詰まりと対処
-- ポート競合: 3000が使用中→`docker compose down`や`ports`で`3001:3000`に変更。
+- ポート競合: 3000が使用中→`5173:5173`を推奨。必要なら`docker compose down`後に`ports`を書き換え。
 - ホットリロードしない: Windows/VM環境は`CHOKIDAR_USEPOLLING=true`で改善。ボリュームマウントを再確認。
 - コンテナ起動直後に落ちる: `package.json`未作成が原因→`Dockerfile`のフォールバックで`sleep infinity`になっているかを確認し、`npm create vite@latest`を実行。
 - 権限/パーミッション: `node_modules`はボリューム分離で回避。うまく行かない場合は`docker compose down -v`で再作成。
 - Nodeバージョン差異: CIはNode 20を使用。ローカルは`node:24-alpine`ベースでも問題ないが、互換性エラー時はCI側のNodeバージョンに合わせる。
 - GitHubへのpush認証失敗: PAT/SSH設定を再確認。2FA有効時はトークンを利用。
+
+---
+
+## 実行結果ログ（2025-11-16）
+
+### ローカル検証（コンテナ内でテスト/ビルド）
+実行コマンド:
+```powershell
+docker compose exec -w /workspace/web app sh -lc "npm test; npm run build"
+```
+結果サマリ:
+- Test: 1 passed（`src/components/TodoItem.test.tsx` が緑）
+- Build: 成功（`dist/`生成、JS約195kB gzip約61kB）
+
+### GitHub Pages 公開確認
+- 推定公開URL: https://Koganryu.github.io/todo_app/
+- 現在の到達状況: 404（未公開）
+
+公開までの手順チェックリスト:
+1) GitHub リポジトリ → Settings → Pages → Build and deployment → Source を「GitHub Actions」に設定し Save。
+2) Actions タブで「Deploy to GitHub Pages」ワークフローが成功していることを確認。
+	- 成功時、ジョブ出力に公開URL（`page_url`）が表示されます。
+3) 数分待ってから上記URL（または `page_url`）を開いて表示を確認。
+	- Viteのベースパスは `VITE_BASE="/todo_app/"` でビルド済み（`deploy.yml`）。
+
+（任意）ブランチ保護の最小設定:
+1) Settings → Branches → Add rule
+2) Branch name pattern: `main`
+3) Require status checks to pass before merging をON
+4) 必須チェックに「CI」（lint/test/build）と「Deploy to GitHub Pages」（存在する場合）を選択→Save
+
