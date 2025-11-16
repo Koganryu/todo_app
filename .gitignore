@@ -1,0 +1,23 @@
+# dependencies
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+
+# env
+.env
+.env.*
+
+# logs
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# editor/OS
+.DS_Store
+.vscode/
+*.swp
+
+# docker
+.docker/
+.tmp/
